@@ -7,66 +7,95 @@ import { ACROPOLIS_STOPS } from './constants';
 
 const App: React.FC = () => {
   const [activeStopIndex, setActiveStopIndex] = useState(0);
+  const [isTestMode, setIsTestMode] = useState(false);
   const [userLocation, setUserLocation] = useState<{lat: number; lng: number} | null>(null);
 
   const requestLocation = () => {
+    if (isTestMode) return;
+
     if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition((position) => {
-        setUserLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        });
-        
-        // Simple logic to find nearest stop
-        let nearestIndex = 0;
-        let minDistance = Infinity;
-        
-        ACROPOLIS_STOPS.forEach((stop, index) => {
-          const d = Math.sqrt(
-            Math.pow(stop.latitude - position.coords.latitude, 2) + 
-            Math.pow(stop.longitude - position.coords.longitude, 2)
-          );
-          if (d < minDistance) {
-            minDistance = d;
-            nearestIndex = index;
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setUserLocation({ lat: latitude, lng: longitude });
+          
+          let nearestIndex = activeStopIndex;
+          let minDistance = Infinity;
+          
+          ACROPOLIS_STOPS.forEach((stop, index) => {
+            const d = Math.sqrt(
+              Math.pow(stop.latitude - latitude, 2) + 
+              Math.pow(stop.longitude - longitude, 2)
+            );
+            if (d < minDistance) {
+              minDistance = d;
+              nearestIndex = index;
+            }
+          });
+          
+          // Auto-select if very close (site radius)
+          if (minDistance < 0.005) { 
+             setActiveStopIndex(nearestIndex);
           }
-        });
-        
-        // Only update if relatively close (roughly within site bounds)
-        if (minDistance < 0.005) { 
-           setActiveStopIndex(nearestIndex);
-        }
-      });
+        },
+        (error) => console.warn(error),
+        { enableHighAccuracy: true }
+      );
     }
   };
 
   useEffect(() => {
-    // Initial check
+    const interval = setInterval(requestLocation, 10000);
     requestLocation();
-  }, []);
+    return () => clearInterval(interval);
+  }, [isTestMode]);
+
+  const currentStop = ACROPOLIS_STOPS[activeStopIndex];
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#fcfaf7] selection:bg-amber-200">
-      <Header />
+    <div className="min-h-screen flex flex-col bg-[#fcfaf7]">
+      <Header 
+        isTestMode={isTestMode} 
+        onToggleTest={() => setIsTestMode(!isTestMode)} 
+      />
       
-      <main className="flex-1 overflow-y-auto px-5 pt-8 pb-32 no-scrollbar">
-        <div className="flex items-start justify-between mb-8">
+      <main className="flex-1 overflow-y-auto px-6 pt-8 pb-44 no-scrollbar">
+        <div className="flex items-start justify-between mb-10">
           <div>
-            <h2 className="font-ancient text-3xl font-bold text-stone-900 leading-tight">Your Route</h2>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold rounded-md uppercase">10:00 Arrival</span>
-              <span className="w-1 h-1 bg-stone-300 rounded-full"></span>
-              <span className="text-xs text-stone-500 font-medium">Athens Time (GMT+2)</span>
+            <h2 className="font-ancient text-3xl font-bold text-stone-900 tracking-tight leading-none">Tour Path</h2>
+            <div className="flex items-center gap-3 mt-3">
+              <span className="px-2.5 py-1 bg-amber-100 text-amber-800 text-[10px] font-black rounded-lg uppercase tracking-wider shadow-sm border border-amber-200/50">
+                10:00 Slot
+              </span>
+              <span className="text-[11px] text-stone-400 font-bold uppercase tracking-widest flex items-center gap-1.5">
+                <i className="fa-solid fa-calendar-day"></i>
+                Feb 16
+              </span>
             </div>
           </div>
           <button 
             onClick={requestLocation}
-            className="w-12 h-12 bg-white rounded-2xl border border-stone-200 flex items-center justify-center text-stone-700 active:bg-stone-50 transition-colors shadow-sm"
-            title="Locate me"
+            disabled={isTestMode}
+            className={`w-14 h-14 rounded-[22px] border flex items-center justify-center transition-all shadow-xl ${
+              isTestMode 
+                ? 'bg-stone-50 text-stone-200 border-stone-100' 
+                : 'bg-white text-stone-700 border-stone-100 active:scale-95'
+            }`}
           >
-            <i className="fa-solid fa-location-crosshairs"></i>
+            <i className={`fa-solid ${isTestMode ? 'fa-location-dot opacity-40' : 'fa-location-crosshairs'}`}></i>
           </button>
         </div>
+
+        {isTestMode && (
+          <div className="mb-8 p-5 bg-amber-600/5 border border-amber-600/20 rounded-[30px] flex gap-4 items-center animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="bg-amber-600 text-white w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-amber-200">
+              <i className="fa-solid fa-flask"></i>
+            </div>
+            <p className="text-[13px] text-amber-900 font-medium leading-tight">
+              <strong>Simulating Trip:</strong> Tap any site below to "stand" there virtually for the AI Guide.
+            </p>
+          </div>
+        )}
 
         <div className="relative">
           {ACROPOLIS_STOPS.map((stop, index) => (
@@ -79,32 +108,31 @@ const App: React.FC = () => {
           ))}
         </div>
 
-        {/* On-site tips card */}
-        <div className="mt-4 p-6 bg-stone-900 rounded-[32px] text-white shadow-2xl relative overflow-hidden group">
+        <div className="mt-6 p-7 bg-stone-900 rounded-[40px] text-white shadow-2xl relative overflow-hidden group">
           <div className="relative z-10">
-            <h3 className="font-ancient text-lg font-bold mb-3">Guide Tips for Today</h3>
-            <ul className="space-y-3">
-              <li className="flex gap-3 text-sm text-stone-300">
-                <i className="fa-solid fa-sun text-amber-500 mt-1"></i>
-                <span>High UV index. Stay in the shadow of the Parthenon when waiting.</span>
+            <h3 className="font-ancient text-xl font-bold mb-4 flex items-center gap-2">
+              <i className="fa-solid fa-sparkles text-amber-500"></i>
+              Winter Morning Tips
+            </h3>
+            <ul className="space-y-4">
+              <li className="flex gap-4 text-[13px] text-stone-300 leading-relaxed font-medium">
+                <div className="w-6 flex-shrink-0 flex justify-center"><i className="fa-solid fa-cloud-sun text-amber-400"></i></div>
+                <span>Expect a cool breeze at the summit (Propylaea). Keep your jacket zipped.</span>
               </li>
-              <li className="flex gap-3 text-sm text-stone-300">
-                <i className="fa-solid fa-camera text-blue-400 mt-1"></i>
-                <span>The best angle for Athena Nike is from the far right of the stairs.</span>
+              <li className="flex gap-4 text-[13px] text-stone-300 leading-relaxed font-medium">
+                <div className="w-6 flex-shrink-0 flex justify-center"><i className="fa-solid fa-image text-blue-400"></i></div>
+                <span>The sun hits the Caryatids perfectly at 11:20 AM. Have your phone ready.</span>
               </li>
             </ul>
           </div>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+          <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-amber-500/10 rounded-full blur-[60px]"></div>
         </div>
       </main>
 
-      <GuidePanel activeStopName={ACROPOLIS_STOPS[activeStopIndex].title} />
-      
-      {/* Background visual flair for mobile */}
-      <div className="fixed top-0 left-0 w-full h-screen pointer-events-none -z-10 overflow-hidden">
-        <div className="absolute top-[20%] -left-20 w-80 h-80 bg-amber-100/20 rounded-full blur-[100px]"></div>
-        <div className="absolute bottom-[20%] -right-20 w-80 h-80 bg-stone-200/30 rounded-full blur-[100px]"></div>
-      </div>
+      <GuidePanel 
+        activeStopName={currentStop.title} 
+        activeStopLocation={{ latitude: currentStop.latitude, longitude: currentStop.longitude }}
+      />
     </div>
   );
 };

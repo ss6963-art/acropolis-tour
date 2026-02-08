@@ -10,8 +10,8 @@ export interface TourStop {
 
 export interface GroundingChunk {
   maps?: {
-    uri: string;
-    title: string;
+    uri?: string;
+    title?: string;
   };
 }
 
@@ -21,8 +21,7 @@ export interface AIResponse {
 }
 
 export interface AppState {
-  currentStopIndex: number;
-  isTourStarted: boolean;
-  messages: Array<{ role: 'user' | 'assistant'; text: string; links?: GroundingChunk[] }>;
-  isLoading: boolean;
+  activeStopIndex: number;
+  isTestMode: boolean;
+  userLocation: { lat: number; lng: number } | null;
 }
