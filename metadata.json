@@ -1,0 +1,8 @@
+
+{
+  "name": "Acropolis Navigator",
+  "description": "An AI-powered 2-hour guided tour experience for the Athens Acropolis, featuring real-time map grounding and detailed historical insights.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
